@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Omgevingsmonitor</title>
+  <style>
+    @font-face { font-family: "Orbitron"; font-weight: 500; src: url("{{ url_for('static', filename='orbitron-latin-500-normal.woff2') }}") format("woff2"); }
+    @font-face { font-family: "Orbitron"; font-weight: 700; src: url("{{ url_for('static', filename='orbitron-latin-700-normal.woff2') }}") format("woff2"); }
+    @font-face { font-family: "Orbitron"; font-weight: 900; src: url("{{ url_for('static', filename='orbitron-latin-900-normal.woff2') }}") format("woff2"); }
+
+    :root {
+      --bg: #0a0a0a; --paneel: #101214; --paneel-2: #14171a;
+      --lijn: rgba(255,255,255,.09); --lijn-sterk: rgba(255,255,255,.18);
+      --tekst: #E8EAED; --dim: #8A9099;
+      --cyaan: #2DE2E6; --oranje: #FF9F43; --groen: #3DDC97; --fout: #FF5C5C;
+      --kop: "Orbitron", "Segoe UI", sans-serif;
+      --mono: Consolas, "SFMono-Regular", Menlo, monospace;
+      --tekstfont: "Segoe UI", Calibri, Carlito, system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--tekst); font-family: var(--tekstfont); background-color: var(--bg);
+           background-image: linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+                             linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+           background-size: 48px 48px; min-height: 100vh; }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 24px; }
+
+    /* ---- kop ---- */
+    header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+             padding-bottom: 16px; border-bottom: 1px solid var(--lijn); }
+    .merk { display: flex; align-items: center; gap: 16px; }
+    .merk svg { width: 44px; height: 44px; flex: none; filter: drop-shadow(0 0 6px rgba(45,226,230,.55)); }
+    h1 { margin: 0; font-family: var(--kop); font-weight: 900; font-size: 1.25rem; letter-spacing: .14em; }
+    .sub { font-family: var(--mono); font-size: .72rem; letter-spacing: .12em; color: var(--dim); margin-top: 4px; text-transform: uppercase; }
+    .kop-rechts { display: flex; align-items: center; gap: 24px; }
+    #klok { font-family: var(--mono); font-size: .95rem; color: var(--dim); letter-spacing: .06em; }
+    .status { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: .78rem; letter-spacing: .14em;
+              text-transform: uppercase; padding: 8px 12px; border: 1px solid var(--lijn-sterk); background: var(--paneel); }
+    .stip { width: 8px; height: 8px; background: var(--dim); }
+    .status.live { color: var(--groen); border-color: rgba(61,220,151,.45); }
+    .status.live .stip { background: var(--groen); box-shadow: 0 0 8px var(--groen); animation: knip 2s steps(2, jump-none) infinite; }
+    .status.oud { color: var(--fout); border-color: rgba(255,92,92,.5); }
+    .status.oud .stip { background: var(--fout); box-shadow: 0 0 8px var(--fout); }
+    @keyframes knip { 50% { opacity: .35; } }
+
+    /* ---- panelen ---- */
+    .paneel { position: relative; background: var(--paneel); border: 1px solid var(--lijn); padding: 16px 24px 24px; }
+    .paneel::before, .paneel::after { content: ""; position: absolute; width: 12px; height: 12px; border: 1px solid var(--accent, var(--cyaan)); pointer-events: none; }
+    .paneel::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+    .paneel::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+    .paneel:hover { border-color: var(--lijn-sterk); }
+    .temp  { --accent: var(--oranje); }
+    .vocht { --accent: var(--cyaan); }
+    .label { display: flex; align-items: center; gap: 8px; font-family: var(--kop); font-weight: 500; font-size: .68rem;
+             letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+    .label i { width: 8px; height: 8px; background: var(--accent, var(--cyaan)); box-shadow: 0 0 8px var(--accent, var(--cyaan)); }
+
+    .kaarten { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+    .waarde { font-family: var(--kop); font-weight: 700; font-size: 3rem; line-height: 1; margin: 24px 0 8px; color: #fff;
+              text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent); }
+    .waarde small { font-size: 1.1rem; font-weight: 500; color: var(--accent); margin-left: 8px; letter-spacing: .06em; }
+
+    .bereik { margin-top: 24px; }
+    .spoor { position: relative; height: 4px; background: rgba(255,255,255,.08); }
+    .spoor .vul { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, transparent, var(--accent)); opacity: .55; }
+    .spoor .punt { position: absolute; top: -4px; width: 2px; height: 12px; background: var(--accent); box-shadow: 0 0 8px var(--accent); transform: translateX(-1px); }
+    .grenzen { display: flex; justify-content: space-between; margin-top: 8px; font-family: var(--mono); font-size: .75rem; color: var(--dim); }
+    .grenzen b { color: var(--tekst); font-weight: 600; }
+    .bereik-kop { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+
+    .regels { margin-top: 8px; }
+    .regel { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--lijn); }
+    .regel:last-child { border-bottom: 0; }
+    .regel span:first-child { font-size: .85rem; color: var(--dim); }
+    .regel span:last-child { font-family: var(--mono); font-size: .95rem; color: var(--tekst); }
+
+    /* ---- grafieken ---- */
+    .grafieken { margin-top: 16px; --accent: var(--cyaan); }
+    .grafiek-kop { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .periode { display: flex; border: 1px solid var(--lijn-sterk); }
+    .periode button { border: 0; border-right: 1px solid var(--lijn); background: transparent; color: var(--dim); cursor: pointer;
+                      font-family: var(--mono); font-size: .8rem; letter-spacing: .1em; padding: 8px 16px; }
+    .periode button:last-child { border-right: 0; }
+    .periode button:hover { color: var(--tekst); background: var(--paneel-2); }
+    .periode button.actief { color: #0a0a0a; background: var(--cyaan); font-weight: 700; }
+    .g-titel { display: flex; align-items: center; gap: 8px; margin: 24px 0 8px; font-family: var(--mono); font-size: .75rem;
+               letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+    .g-titel i { width: 16px; height: 2px; }
+    .grafiek { position: relative; height: 220px; }
+    .leeg { position: absolute; inset: 0; display: none; place-items: center; color: var(--dim); font-family: var(--mono); font-size: .85rem; }
+
+    /* ---- voet ---- */
+    footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 24px; }
+    .voet { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; color: var(--dim); }
+    .knop { display: inline-flex; align-items: center; gap: 8px; color: var(--cyaan); text-decoration: none; border: 1px solid var(--cyaan);
+            font-family: var(--kop); font-weight: 500; font-size: .75rem; letter-spacing: .16em; text-transform: uppercase;
+            padding: 12px 24px; transition: background .15s, color .15s, box-shadow .15s; }
+    .knop svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: square; }
+    .knop:hover { background: var(--cyaan); color: #0a0a0a; box-shadow: 0 0 16px rgba(45,226,230,.45); }
+
+    @media (max-width: 860px) {
+      .kaarten { grid-template-columns: 1fr; }
+      .waarde { font-size: 2.4rem; }
+      .kop-rechts { width: 100%; justify-content: space-between; }
+      .wrap { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="merk">
+      <svg viewBox="0 0 48 48" fill="none" stroke="#2DE2E6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+        <path d="M24 3 42 13.5v21L24 45 6 34.5v-21z"/>
+        <path d="M21 13a3 3 0 0 1 6 0v12.2a5.5 5.5 0 1 1-6 0z" stroke-width="1.8"/>
+        <path d="M24 17v13" stroke-width="1.8"/>
+      </svg>
+      <div>
+        <h1>OMGEVINGSMONITOR</h1>
+        <div class="sub">Arduino Uno · DHT-sensor · SQLite</div>
+      </div>
+    </div>
+    <div class="kop-rechts">
+      <div id="klok">--:--:--</div>
+      <div class="status" id="status"><span class="stip"></span><span id="status-tekst">Laden</span></div>
+    </div>
+  </header>
+
+  <section class="kaarten" aria-label="Actuele waarden">
+    <div class="paneel temp">
+      <div class="label"><i></i>Temperatuur</div>
+      <div class="waarde"><span id="temp-nu">–</span><small>°C</small></div>
+      <div class="bereik">
+        <div class="bereik-kop">Bereik 24 uur</div>
+        <div class="spoor"><div class="vul" id="temp-vul"></div><div class="punt" id="temp-punt"></div></div>
+        <div class="grenzen"><span>MIN <b id="temp-min">–</b></span><span>MAX <b id="temp-max">–</b></span></div>
+      </div>
+    </div>
+
+    <div class="paneel vocht">
+      <div class="label"><i></i>Luchtvochtigheid</div>
+      <div class="waarde"><span id="vocht-nu">–</span><small>% RH</small></div>
+      <div class="bereik">
+        <div class="bereik-kop">Bereik 24 uur</div>
+        <div class="spoor"><div class="vul" id="vocht-vul"></div><div class="punt" id="vocht-punt"></div></div>
+        <div class="grenzen"><span>MIN <b id="vocht-min">–</b></span><span>MAX <b id="vocht-max">–</b></span></div>
+      </div>
+    </div>
+
+    <div class="paneel">
+      <div class="label"><i></i>Meetstatus</div>
+      <div class="regels">
+        <div class="regel"><span>Laatste meting</span><span id="laatste-tijd">–</span></div>
+        <div class="regel"><span>Metingen (24 uur)</span><span id="aantal">–</span></div>
+        <div class="regel"><span>Meetinterval</span><span>3 s</span></div>
+        <div class="regel"><span>Verversing</span><span>5 s</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="paneel grafieken">
+    <div class="grafiek-kop">
+      <div class="label"><i></i>Verloop van de metingen</div>
+      <div class="periode" id="periode" role="group" aria-label="Periode">
+        <button data-uren="1">1U</button>
+        <button data-uren="6">6U</button>
+        <button data-uren="24" class="actief">24U</button>
+        <button data-uren="168">7D</button>
+      </div>
+    </div>
+    <div class="g-titel"><i style="background:var(--oranje);box-shadow:0 0 8px var(--oranje)"></i>Temperatuur (°C)</div>
+    <div class="grafiek"><canvas id="g-temp" aria-label="Grafiek temperatuur"></canvas><div class="leeg" id="leeg-temp">Nog geen metingen in deze periode</div></div>
+    <div class="g-titel"><i style="background:var(--cyaan);box-shadow:0 0 8px var(--cyaan)"></i>Luchtvochtigheid (% RH)</div>
+    <div class="grafiek"><canvas id="g-vocht" aria-label="Grafiek luchtvochtigheid"></canvas><div class="leeg" id="leeg-vocht">Nog geen metingen in deze periode</div></div>
+  </section>
+
+  <footer>
+    <div class="voet">Gegevens lokaal opgeslagen · automatische verversing elke 5 s</div>
+    <a class="knop" href="/export.csv">
+      <svg viewBox="0 0 24 24"><path d="M12 3v13m0 0l-5-5m5 5l5-5M4 21h16"/></svg>Exporteer CSV
+    </a>
+  </footer>
+</div>
+
+<script src="{{ url_for('static', filename='chart.umd.js') }}"></script>
+<script>
+  const VERVERS_MS = 5000;   // de pagina ververst zichzelf elke 5 seconden
+  const OUD_NA_S = 30;       // zoveel seconden zonder nieuwe meting: waarschuwing tonen
+  let uren = 24;
+  let punten = [];
+
+  const el = id => document.getElementById(id);
+  const getal = (n, d = 1) => n == null ? "–" :
+    n.toLocaleString("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const nlTijd = ts => { const [d, t] = ts.split(" "); const [j, m, dag] = d.split("-"); return `${dag}-${m}-${j} ${t}`; };
+  const leeftijdTekst = s => s < 120 ? `${s} s` : s < 7200 ? `${Math.round(s / 60)} min` : `${Math.round(s / 3600)} uur`;
+
+  // klok rechtsboven
+  const tikKlok = () => { el("klok").textContent = new Date().toLocaleTimeString("nl-NL"); };
+  tikKlok(); setInterval(tikKlok, 1000);
+
+  // y-as: nooit sterker ingezoomd dan `minSpan`, en afgerond op `stap`
+  function asBereik(waarden, minSpan, stap) {
+    if (!waarden.length) return {};
+    let lo = Math.min(...waarden), hi = Math.max(...waarden);
+    const mid = (lo + hi) / 2, span = Math.max(hi - lo, minSpan);
+    return { min: Math.floor((mid - span * 0.6) / stap) * stap, max: Math.ceil((mid + span * 0.6) / stap) * stap };
+  }
+
+  // lichtgevende lijn (zelfde glow-stijl als de rest van het dashboard)
+  const glow = { id: "glow",
+    beforeDatasetDraw(chart) { const c = chart.ctx; c.save(); c.shadowColor = chart.data.datasets[0].borderColor; c.shadowBlur = 12; },
+    afterDatasetDraw(chart) { chart.ctx.restore(); } };
+
+  function maakGrafiek(canvasId, kleur, eenheid) {
+    return new Chart(el(canvasId).getContext("2d"), {
+      type: "line",
+      plugins: [glow],
+      data: { labels: [], datasets: [{
+        data: [], borderColor: kleur, borderWidth: 2, tension: 0.3, pointRadius: 0, pointHoverRadius: 4,
+        pointHoverBackgroundColor: kleur, pointHoverBorderColor: "#0a0a0a", fill: true,
+        backgroundColor: ctx => {
+          const a = ctx.chart.chartArea; if (!a) return kleur + "00";
+          const g = ctx.chart.ctx.createLinearGradient(0, a.top, 0, a.bottom);
+          g.addColorStop(0, kleur + "30"); g.addColorStop(1, kleur + "00"); return g;
+        } }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { displayColors: false, backgroundColor: "#0a0a0a", borderColor: kleur, borderWidth: 1, cornerRadius: 0,
+            titleColor: "#8A9099", bodyColor: "#fff", titleFont: { family: "Consolas, monospace", size: 11 },
+            bodyFont: { family: "Orbitron, sans-serif", size: 13, weight: "700" }, padding: 10,
+            callbacks: {
+              title: items => items.length ? nlTijd(punten[items[0].dataIndex].tijdstempel) : "",
+              label: item => `${getal(item.parsed.y)} ${eenheid}` } }
+        },
+        scales: {
+          x: { grid: { display: false }, border: { color: "rgba(255,255,255,.18)" },
+               ticks: { maxTicksLimit: 8, autoSkip: true, maxRotation: 0, color: "#8A9099", font: { family: "Consolas, monospace", size: 11 } } },
+          y: { grid: { color: "rgba(255,255,255,.06)" }, border: { display: false },
+               ticks: { maxTicksLimit: 5, color: "#8A9099", font: { family: "Consolas, monospace", size: 11 },
+                        callback: v => getal(v, Number.isInteger(v) ? 0 : 1) } }
+        }
+      }
+    });
+  }
+  Chart.defaults.font.family = "Consolas, monospace";
+  const gTemp = maakGrafiek("g-temp", "#FF9F43", "°C");
+  const gVocht = maakGrafiek("g-vocht", "#2DE2E6", "% RH");
+
+  function vulGrafiek(g, waarden, minSpan, stap, leegId) {
+    const label = p => uren > 24 ? `${p.tijdstempel.slice(8, 10)}-${p.tijdstempel.slice(5, 7)} ${p.tijdstempel.slice(11, 16)}` : p.tijdstempel.slice(11, 16);
+    g.data.labels = punten.map(label);
+    g.data.datasets[0].data = waarden;
+    const b = asBereik(waarden, minSpan, stap);
+    g.options.scales.y.min = b.min; g.options.scales.y.max = b.max;
+    el(leegId).style.display = waarden.length ? "none" : "grid";
+    g.update();
+  }
+
+  // balkje met de huidige waarde tussen de 24-uurs min en max
+  function zetBereik(prefix, nu, min, max) {
+    const punt = el(prefix + "-punt"), vul = el(prefix + "-vul");
+    if (nu == null || min == null) { punt.style.left = "0%"; vul.style.width = "0%"; return; }
+    const pos = max > min ? Math.min(1, Math.max(0, (nu - min) / (max - min))) : 0.5;
+    punt.style.left = (pos * 100) + "%"; vul.style.width = (pos * 100) + "%";
+  }
+
+  async function ververs() {
+    const status = el("status"), tekst = el("status-tekst");
+    try {
+      const [s, v] = await Promise.all([
+        fetch("/api/status").then(r => r.json()),
+        fetch(`/api/verloop?uren=${uren}`).then(r => r.json())
+      ]);
+      const l = s.laatste, mm = s.min_max;
+      el("temp-nu").textContent = l ? getal(l.temperatuur) : "–";
+      el("vocht-nu").textContent = l ? getal(l.luchtvochtigheid) : "–";
+      el("temp-min").textContent = mm.aantal ? getal(mm.temp_min) : "–";
+      el("temp-max").textContent = mm.aantal ? getal(mm.temp_max) : "–";
+      el("vocht-min").textContent = mm.aantal ? getal(mm.vocht_min) : "–";
+      el("vocht-max").textContent = mm.aantal ? getal(mm.vocht_max) : "–";
+      zetBereik("temp", l && l.temperatuur, mm.temp_min, mm.temp_max);
+      zetBereik("vocht", l && l.luchtvochtigheid, mm.vocht_min, mm.vocht_max);
+      el("aantal").textContent = mm.aantal.toLocaleString("nl-NL");
+      el("laatste-tijd").textContent = l ? nlTijd(l.tijdstempel).slice(11) : "–";
+
+      if (!l) { status.className = "status oud"; tekst.textContent = "Geen metingen"; }
+      else if (s.leeftijd_s > OUD_NA_S) {
+        status.className = "status oud"; tekst.textContent = `Geen data · ${leeftijdTekst(s.leeftijd_s)}`;
+      } else { status.className = "status live"; tekst.textContent = "Live"; }
+
+      punten = v.punten;
+      vulGrafiek(gTemp, punten.map(p => p.temperatuur), 4, 2, "leeg-temp");
+      vulGrafiek(gVocht, punten.map(p => p.luchtvochtigheid), 10, 5, "leeg-vocht");
+    } catch (fout) {
+      status.className = "status oud"; tekst.textContent = "Server offline";
+    }
+  }
+
+  el("periode").addEventListener("click", e => {
+    const knop = e.target.closest("button"); if (!knop) return;
+    uren = Number(knop.dataset.uren);
+    document.querySelectorAll("#periode button").forEach(b => b.classList.toggle("actief", b === knop));
+    ververs();
+  });
+
+  ververs();
+  setInterval(ververs, VERVERS_MS);
+</script>
+</body>
+</html>

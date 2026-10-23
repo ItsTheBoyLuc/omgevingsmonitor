@@ -1,0 +1,4 @@
+metingen*.db
+metingen*.db-*
+__pycache__/
+.pytest_cache/
